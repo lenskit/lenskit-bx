@@ -12,7 +12,7 @@ buildscript {
 }
 
 import com.xlson.groovycsv.CsvParser
-import org.lenskit.gradle.Crossfold
+import org.lenskit.gradle.*
 
 group 'org.lenskit'
 version '1-SNAPSHOT'
@@ -80,4 +80,24 @@ task crossfold(group: 'prep', type: Crossfold) {
     holdout 5
     outputDir "$buildDir/crossfold"
     outputFormat 'PACK'
+}
+
+task evaluate(type: TrainTest, group: 'eval') {
+    dataSet crossfold
+
+    outputFile "$buildDir/eval-results.csv"
+
+    algorithm 'Baseline', 'etc/baseline.groovy'
+
+    predict {
+        metric 'rmse'
+        metric 'mae'
+        metric 'coverage'
+    }
+    recommend {
+        listSize 100
+        metric 'mrr'
+        metric 'map'
+        metric 'ndcg'
+    }
 }
