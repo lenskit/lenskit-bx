@@ -1,0 +1,83 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://oss.sonatype.org/content/repositories/snapshots/"
+        }
+    }
+    dependencies {
+        classpath 'org.grouplens.lenskit:lenskit-gradle:3.0-SNAPSHOT'
+        classpath 'com.xlson.groovycsv:groovycsv:1.1'
+    }
+}
+
+import com.xlson.groovycsv.CsvParser
+import org.lenskit.gradle.Crossfold
+
+group 'org.lenskit'
+version '1-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'lenskit'
+
+sourceCompatibility = 1.7
+ext.lenskitVersion = '3.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+}
+
+dependencies {
+    compile group: 'org.grouplens.lenskit', name: 'lenskit-all', version: lenskitVersion
+    runtime group: 'org.grouplens.lenskit', name: 'lenskit-cli', version: lenskitVersion
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+task prepareRatings(group: 'prep') {
+    description "Processes book data into LensKit-readable format"
+    inputs.file 'BX-CSV-Dump/BX-Book-Ratings.csv'
+    outputs.file "$buildDir/book-ids.csv"
+    outputs.file "$buildDir/ratings.csv"
+
+    doLast {
+        mkdir buildDir
+        def idMap = new HashMap<String,Integer>()
+        file("$buildDir/book-ids.csv").withPrintWriter { idFile ->
+            file("$buildDir/ratings.csv").withPrintWriter { ratingsFile ->
+                file('BX-CSV-Dump/BX-Book-Ratings.csv').withReader { input ->
+                    CsvParser.parseCsv(input, separator: ';').each { line ->
+                        def user = line[0]
+                        def isbn = line[1]
+                        def rating = line[2]
+                        int item
+                        if (idMap.containsKey(isbn)) {
+                            item = idMap[isbn]
+                        } else {
+                            item = idMap.size() + 1
+                            idMap[isbn] = item
+                            idFile.println("$item,$isbn")
+                        }
+                        ratingsFile.println("$user,$item,$rating")
+                    }
+                }
+            }
+        }
+    }
+}
+
+task crossfold(group: 'prep', type: Crossfold) {
+    inputs.files prepareRatings
+    input textFile {
+        file "$buildDir/ratings.csv"
+        delimiter ','
+    }
+
+    partitionCount 5
+    holdout 5
+    outputDir "$buildDir/crossfold"
+    outputFormat 'PACK'
+}

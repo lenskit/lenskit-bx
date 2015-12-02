@@ -1,0 +1,5 @@
+/.idea
+*.iml
+/BX-CSV-Dump
+/build
+/.gradle
