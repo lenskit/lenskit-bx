@@ -25,6 +25,7 @@ ext.lenskitVersion = '3.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven {
         url "https://oss.sonatype.org/content/repositories/snapshots/"
     }
@@ -76,6 +77,8 @@ task crossfold(group: 'prep', type: Crossfold) {
         delimiter ','
     }
 
+    classpath = configurations.runtime
+
     partitionCount 5
     holdout 5
     outputDir "$buildDir/crossfold"
@@ -83,11 +86,22 @@ task crossfold(group: 'prep', type: Crossfold) {
 }
 
 task evaluate(type: TrainTest, group: 'eval') {
-    dataSet crossfold
+    dataSet crossfold, isolate: true
+    if (project.hasProperty('logback.config')) {
+        invoker {
+            systemProperties('log.file': "$buildDir/evaluate.log",
+                             'logback.configurationFile': file(project.getProperty('logback.config')))
+        }
+    }
+
+    logFile "$buildDir/evaluate.log"
 
     outputFile "$buildDir/eval-results.csv"
 
-    algorithm 'Baseline', 'etc/baseline.groovy'
+    // algorithm 'Baseline', 'etc/baseline.groovy'
+    algorithm 'Item-Item', 'etc/item-item.groovy'
+    maxMemory '8g'
+
 
     predict {
         metric 'rmse'
